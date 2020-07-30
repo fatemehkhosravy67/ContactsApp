@@ -1,124 +1,149 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jul 22 18:42:08 2020
+Created on Thu Jul 30 00:39:07 2020
 
 @author: fatemeh
 """
 
 
-import sqlite3
-from bottle import route, run, debug, template, request, static_file, error
+#from ContactsApp.sqcontacts import conn
+import json
+from bottle import route, run, debug, template, redirect, request, static_file, error,default_app
+import sqlite3, os
+# from bottle import Bottle
 
-# only needed when you run Bottle on mod_wsgi
-from bottle import default_app
 
 
-@route('/contacts')
+@route('/contacts', method=["GET"])
 def contact_list():
-
-    conn = sqlite3.connect('contacts.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM contacts ORDER BY firstname")
-    result = c.fetchall()
-    c.close()
-
-    output = template('make_table', rows=result)
-    return output
-
-
-@route('/new', method='GET')
-def new_item():
-
-    if request.GET.save:
-
-        new = request.GET.task.strip()
+    if  os.path.exists ('contacts.db'):
         conn = sqlite3.connect('contacts.db')
         c = conn.cursor()
-
-        c.execute("INSERT INTO contacts (task,status) VALUES (?,?)", (new, 1))
-        new_id = c.lastrowid
-
-        conn.commit()
-        c.close()
-
-        return '<p>The new task was inserted into the database, the ID is %s</p>' % new_id
-
-    else:
-        return template('new_task.tpl')
-
-
-@route('/edit/<no:int>', method='GET')
-def edit_item(no):
-
-    if request.GET.save:
-        edit = request.GET.task.strip()
-        status = request.GET.status.strip()
-
-        if status == 'open':
-            status = 1
-        else:
-            status = 0
-
-        conn = sqlite3.connect('contacts.db')
-        c = conn.cursor()
-        c.execute("UPDATE contacts SET task = ?, status = ? WHERE id LIKE ?", (edit, status, no))
-        conn.commit()
-
-        return '<p>The item number %s was successfully updated</p>' % no
-    else:
-        conn = sqlite3.connect('contacts.db')
-        c = conn.cursor()
-        c.execute("SELECT task FROM contacts WHERE id LIKE ?", (str(no)))
-        cur_data = c.fetchone()
-
-        return template('edit_task', old=cur_data, no=no)
-
-
-@route('/item<item:re:[0-9]+>')
-def show_item(item):
-
-        conn = sqlite3.connect('contacts.db')
-        c = conn.cursor()
-        c.execute("SELECT task FROM contacts WHERE id LIKE ?", (item,))
+        c.execute("SELECT * FROM contacts ORDER BY firstname")
         result = c.fetchall()
+        print('all data fetched from db')
+        print(result)
+        conn.commit()
         c.close()
-
-        if not result:
-            return 'This item number does not exist!'
-        else:
-            return 'Task: %s' % result[0]
-
-
-@route('/help')
-def help():
-
-    static_file('help.html', root='.')
-
-
-@route('/json<json:re:[0-9]+>')
-def show_json(json):
-
-    conn = sqlite3.connect('contacts.db')
-    c = conn.cursor()
-    c.execute("SELECT task FROM contacts WHERE id LIKE ?", (json,))
-    result = c.fetchall()
-    c.close()
-
-    if not result:
-        return {'task': 'This item number does not exist!'}
     else:
-        return {'task': result[0]}
+        print('No path to database found.') 
+    # output = template('make_table', rows=result)
+    print('template rendered successfully')
+    final_res = [{'id':item[0],'firstname': item[1], 'lastname': item[2],
+                  'cellnumber': item[3]} for item in result]
+
+    return json.dumps(final_res)
+
+# @route('/item<item:re:[0-9]+>')
+# def show_item(item):
+#     conn = sqlite3.connect('contacts.db')
+#     c = conn.cursor()
+#     c.execute("SELECT * FROM contacts WHERE id LIKE ?", (item,))
+#     result = c.fetchall()
+#     c.close()
+
+#     if not result:
+#         return 'This item number does not exist!'
+#     else:
+#         return 'Task: %s' % result[0]
+
+@route('/add', method=["GET"])
+def new_item():
+    #  if request.GET.get('add','').strip():
+          # return 'ok'
+        ID = request.GET.get('ID', '').strip()
+        firstname = request.GET.get('firstname', '').strip()
+        lastname = request.GET.get('lastname', '').strip()
+        cellnumber = request.GET.get('cellnumber', '').strip()
+        conn = sqlite3.connect('contacts.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO contacts (id,firstname,lastname,cellnumber) VALUES  (?,?,?,?)", (ID,firstname,lastname,cellnumber))
+        # new_id = c.lastrowid
+        conn.commit()
+        c.close()
+        return redirect('/contacts')
+      # else:
+      #      # return template('add_item.tpl')
+      #       # return redirect('/contacts')
+      #    return 'NOt ok'
 
 
-@error(403)
-def mistake403(code):
-    return 'There is a mistake in your url!'
 
+# @route('/edit/:no', method='GET')
+# def edit_item(no):
+#       if request.GET.get('save','').strip():
+#           firstname = request.GET.get('firstname', '').strip()
+#           lastname = request.GET.get('lastname', '').strip()
+#           cellnumber = request.GET.get('cellnumber', '').strip()
+#           conn = sqlite3.connect('contacts.db')
+#           c = conn.cursor()
+#           c.execute("UPDATE contacts SET firstname = ?, lastname = ?,cellnumber=?  \
+#                       WHERE id = ?", (firstname,lastname,cellnumber, no))
+#           conn.commit()
+#           return redirect('/contacts')
+#       else:
+#           conn = sqlite3.connect('contacts.db')
+#           c = conn.cursor()
+#           c.execute("SELECT * FROM contacts WHERE id LIKE ?", \
+#                       (str(no)))
+#           cur_data = c.fetchone()
+#           return template('edit_item.tpl', old=cur_data, no=no)
+        
+@route('/edit', method=["GET"])
+def edit_item():
+      # if request.GET.get('save','').strip():
+          firstname = request.GET.get('firstname', '').strip()
+          lastname = request.GET.get('lastname', '').strip()
+          cellnumber = request.GET.get('cellnumber', '').strip()
+          conn = sqlite3.connect('contacts.db')
+          c = conn.cursor()
+          c.execute("UPDATE contacts SET firstname = ?, lastname = ?,cellnumber=?  \
+                      WHERE id = 43", (firstname,lastname,cellnumber))
+          conn.commit()
+          return redirect('/contacts')
+      # else:
+      #     conn = sqlite3.connect('contacts.db')
+      #     c = conn.cursor()
+      #     c.execute("SELECT * FROM contacts WHERE id LIKE ?", \
+      #                 (str(no)))
+      #     cur_data = c.fetchone()
+      #     return template('edit_item.tpl', old=cur_data, no=no)
 
-@error(404)
-def mistake404(code):
-    return 'Sorry, this page does not exist!'
+# @route('/delete/:no', method=["GET"])
+# def delete_item(no):
+#       # if request.GET.get('delete','').strip():   
+#            conn = sqlite3.connect('contacts.db')
+#            c = conn.cursor()         
+#            c.execute("DELETE FROM contacts WHERE id =?",(no))
+#            conn.commit()
+#            return redirect('/contacts')
+#       # else:
+#       #     return template('delete_item.tpl', no=no)
+    
 
+@route('/delete', method=["GET"])
+def delete_item():
+      # if request.GET.get('delete','').strip():   
+           conn = sqlite3.connect('contacts.db')
+           c = conn.cursor()         
+           c.execute("DELETE FROM contacts WHERE id =985")
+           conn.commit()
+           return redirect('/contacts')
+      # else:
+      #     return template('delete_item.tpl', no=no)
+    
+    
+     
 
-debug(True)
-run(reloader=True)
+# app = Bottle()
+# @app.route('/contacts')
+# def show_contacts():
+#     db = sqlite3.connect('contacts.db')
+#     c = db.cursor()
+#     c.execute("SELECT * FROM contacts")
+#     data = c.fetchall()
+#     c.close()
+#     output = template('bring_to_contacts', rows=data)
+#     return output
+
+run(host='localhost', port=8080, debug=True)
